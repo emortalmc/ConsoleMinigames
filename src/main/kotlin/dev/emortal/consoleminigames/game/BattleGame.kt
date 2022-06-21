@@ -102,6 +102,12 @@ class BattleGame(gameOptions: GameOptions) : PvpGame(gameOptions) {
             }
         }
 
+        eventNode.listenOnly<PlayerExhaustEvent> {
+            if (gameState != GameState.PLAYING || playersInvulnerable) isCancelled = true
+
+            this.amount = amount / 1.6f
+        }
+
         eventNode.listenOnly<FinalAttackEvent> {
             if (gameState != GameState.PLAYING || playersInvulnerable) isCancelled = true
         }
@@ -309,10 +315,6 @@ class BattleGame(gameOptions: GameOptions) : PvpGame(gameOptions) {
 
             val couldAdd = player.inventory.addItemStack(itemStack)
             isCancelled = !couldAdd
-        }
-
-        eventNode.listenOnly<PlayerExhaustEvent> {
-            this.amount = amount / 1.5f
         }
 
         eventNode.listenOnly<EntityPreDeathEvent> {
