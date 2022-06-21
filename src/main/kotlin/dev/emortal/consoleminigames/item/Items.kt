@@ -1,5 +1,8 @@
 package dev.emortal.consoleminigames.item
 
+import net.minestom.server.instance.block.Block
+import net.minestom.server.item.Enchantment
+import net.minestom.server.item.ItemHideFlag
 import net.minestom.server.item.Material
 import net.minestom.server.item.metadata.PotionMeta
 import net.minestom.server.potion.PotionEffect
@@ -43,7 +46,7 @@ object Items {
 
         // Weapons
         Item(Material.BOW, rare),
-        Item(Material.ARROW, lesscommon),
+        Item(Material.ARROW, lesscommon) { it.amount(random.nextInt(2, 6)) },
         Item(Material.TIPPED_ARROW, rare) {
             it.meta(PotionMeta::class.java) {
                 it.effects(listOf(customPotionEffect(PotionEffect.POISON, 0, 5 * 20)))
@@ -74,11 +77,22 @@ object Items {
         Item(Material.DIAMOND_SHOVEL, veryrare),
 
         // Misc
-        Item(Material.WOODEN_HOE, lesscommon),
+        Item(Material.WOODEN_HOE, rare) {
+            it.meta {
+                it.enchantment(Enchantment.FIRE_ASPECT, 1)
+                it.enchantment(Enchantment.KNOCKBACK, 2)
+            }
+        },
         //Item(Material.SHEARS, lesscommon)
         //Item(Material.STICK, uncommon)
         Item(Material.FISHING_ROD, rare),
-        Item(Material.TNT, rare) { it.amount(random.nextInt(1, 3)) },
+        Item(Material.TNT, lesscommon) {
+            it.amount(random.nextInt(1, 3))
+            it.meta {
+                it.canPlaceOn(Block.values().toMutableSet())
+                it.hideFlag(ItemHideFlag.HIDE_PLACED_ON)
+            }
+        },
 
         // Potions
         Item(Material.TOTEM_OF_UNDYING, legendary),
@@ -87,11 +101,11 @@ object Items {
                 it.potionType(PotionType.STRONG_HEALING)
             }
         },
-        Item(Material.LINGERING_POTION, rare) {
-            it.meta(PotionMeta::class.java) {
-                it.potionType(PotionType.REGENERATION)
-            }
-        },
+//        Item(Material.LINGERING_POTION, rare) {
+//            it.meta(PotionMeta::class.java) {
+//                it.potionType(PotionType.REGENERATION)
+//            }
+//        },
         Item(Material.POTION, rare) {
             it.meta(PotionMeta::class.java) {
                 it.potionType(PotionType.FIRE_RESISTANCE)
@@ -117,11 +131,11 @@ object Items {
                 it.potionType(PotionType.STRONG_HARMING)
             }
         },
-        Item(Material.LINGERING_POTION, rare) {
-            it.meta(PotionMeta::class.java) {
-                it.potionType(PotionType.STRONG_HARMING)
-            }
-        },
+//        Item(Material.LINGERING_POTION, rare) {
+//            it.meta(PotionMeta::class.java) {
+//                it.potionType(PotionType.STRONG_HARMING)
+//            }
+//        },
         Item(Material.SPLASH_POTION, rare) {
             it.meta(PotionMeta::class.java) {
                 it.potionType(PotionType.POISON)

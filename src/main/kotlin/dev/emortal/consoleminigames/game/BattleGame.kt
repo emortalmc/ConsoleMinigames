@@ -11,10 +11,9 @@ import dev.emortal.immortal.util.MinestomRunnable
 import io.github.bloepiloepi.pvp.PvpExtension
 import io.github.bloepiloepi.pvp.damage.CustomDamageType
 import io.github.bloepiloepi.pvp.damage.CustomEntityDamage
-import io.github.bloepiloepi.pvp.events.EntityPreDeathEvent
-import io.github.bloepiloepi.pvp.events.FinalAttackEvent
-import io.github.bloepiloepi.pvp.events.FinalDamageEvent
-import io.github.bloepiloepi.pvp.events.PlayerExhaustEvent
+import io.github.bloepiloepi.pvp.events.*
+import io.github.bloepiloepi.pvp.explosion.ExplosionListener
+import io.github.bloepiloepi.pvp.explosion.PvpExplosionSupplier
 import net.kyori.adventure.bossbar.BossBar
 import net.kyori.adventure.sound.Sound
 import net.kyori.adventure.text.Component
@@ -33,11 +32,13 @@ import net.minestom.server.event.inventory.InventoryPreClickEvent
 import net.minestom.server.event.item.ItemDropEvent
 import net.minestom.server.event.item.PickupItemEvent
 import net.minestom.server.event.player.PlayerBlockInteractEvent
+import net.minestom.server.event.player.PlayerBlockPlaceEvent
 import net.minestom.server.event.player.PlayerEatEvent
 import net.minestom.server.event.player.PlayerMoveEvent
 import net.minestom.server.instance.AnvilLoader
 import net.minestom.server.instance.Instance
 import net.minestom.server.instance.block.Block
+import net.minestom.server.instance.block.BlockHandler.Dummy
 import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
 import net.minestom.server.network.packet.server.play.BlockActionPacket
@@ -69,7 +70,7 @@ class BattleGame(gameOptions: GameOptions) : PvpGame(gameOptions) {
     }
 
     private val chests = ConsoleMinigamesExtension.cavernsChests
-    private val openedChests = chests
+    private val openedChests = chests.toMutableList() // toMutableList makes sure we have a copy instead of modifying cavernsChests directly
 
     override var spawnPosition: Pos = Pos(268.5, 26.0, -0.5)
 
@@ -82,12 +83,12 @@ class BattleGame(gameOptions: GameOptions) : PvpGame(gameOptions) {
         eventNode.listenOnly<FinalDamageEvent> {
             val player = entity as? Player ?: return@listenOnly
 
-            if (damageType == CustomDamageType.FALL) {
-                if (gameState != GameState.PLAYING || playersInvulnerable) {
-                    isCancelled = true
-                    return@listenOnly
-                }
+            if (gameState != GameState.PLAYING || playersInvulnerable) {
+                isCancelled = true
+                return@listenOnly
+            }
 
+            if (damageType == CustomDamageType.FALL) {
                 val blockUnder = instance.getBlock(player.position.sub(0.0, 1.0, 0.0))
                 val blockIn = instance.getBlock(player.position)
 
@@ -114,6 +115,10 @@ class BattleGame(gameOptions: GameOptions) : PvpGame(gameOptions) {
     }
 
     override fun gameStarted() {
+
+        ConsoleMinigamesExtension.cavernsChests.forEach {
+            instance.setBlock(it, SingleChestHandler.create())
+        }
 
         players.forEachIndexed { i, player ->
             player.teleport(getCircleSpawnPosition(i))
@@ -281,6 +286,20 @@ class BattleGame(gameOptions: GameOptions) : PvpGame(gameOptions) {
     }
 
     override fun registerEvents() {
+        eventNode.listenOnly<ExplosionEvent> {
+            this.affectedBlocks.clear()
+        }
+        eventNode.listenOnly<PlayerBlockPlaceEvent> {
+            if (block.compare(Block.TNT)) {
+
+                isCancelled = true
+                ExplosionListener.primeTnt(instance, blockPosition, player, 50)
+                player.itemInMainHand = if (player.itemInMainHand.amount() == 1) ItemStack.AIR else  player.itemInMainHand.withAmount(player.itemInMainHand.amount() - 1)
+
+                return@listenOnly
+            }
+        }
+
         val itemOwnerTag = Tag.UUID("itemOwner")
 
         eventNode.listenOnly<PlayerEatEvent> {
@@ -305,6 +324,11 @@ class BattleGame(gameOptions: GameOptions) : PvpGame(gameOptions) {
         }
         eventNode.listenOnly<PickupItemEvent> {
             val player = entity as? Player ?: return@listenOnly
+
+            if (player.gameMode != GameMode.ADVENTURE) {
+                isCancelled = true
+                return@listenOnly
+            }
 
             val itemOwner = itemEntity.getTag(itemOwnerTag)
             // Only let purposely dropped items be picked up by the owner, unless the owner has died
@@ -331,6 +355,10 @@ class BattleGame(gameOptions: GameOptions) : PvpGame(gameOptions) {
         eventNode.listenOnly<PlayerBlockInteractEvent> {
             if (player.gameMode != GameMode.ADVENTURE) return@listenOnly
             if (block.compare(Block.CHEST)) {
+                if (block.handler() is Dummy) {
+                    player.sendMessage("Chest didn't have handler")
+                    instance.setBlock(blockPosition, SingleChestHandler.create())
+                }
                 val singleChest = block.handler() as SingleChestHandler
                 player.openInventory(singleChest.inventory)
 
@@ -462,10 +490,7 @@ class BattleGame(gameOptions: GameOptions) : PvpGame(gameOptions) {
         newInstance.timeUpdate = null
         newInstance.timeRate = 0
         newInstance.setTag(GameManager.doNotAutoUnloadChunkTag, true)
-
-        ConsoleMinigamesExtension.cavernsChests.forEach {
-            newInstance.setBlock(it, SingleChestHandler.create())
-        }
+        newInstance.explosionSupplier = PvpExplosionSupplier.INSTANCE
 
         return newInstance
     }
