@@ -83,9 +83,13 @@ object Items {
                 it.enchantment(Enchantment.KNOCKBACK, 2)
             }
         },
-        //Item(Material.SHEARS, lesscommon)
-        //Item(Material.STICK, uncommon)
-        Item(Material.FISHING_ROD, rare),
+        //Item(Material.SHEARS, lesscommon),
+        Item(Material.STICK, uncommon) {
+            it.meta {
+                it.enchantment(Enchantment.SHARPNESS, 2)
+            }
+        },
+        //Item(Material.FISHING_ROD, rare),
         Item(Material.TNT, lesscommon) {
             it.amount(random.nextInt(1, 3))
             it.meta {
@@ -114,21 +118,26 @@ object Items {
         Item(Material.POTION, rare) {
             it.meta(PotionMeta::class.java) {
                 it.potionType(PotionType.INVISIBILITY)
+                it.effects(listOf(customPotionEffect(PotionEffect.INVISIBILITY, 0, 60 * 20)))
             }
         },
         Item(Material.POTION, rare) {
             it.meta(PotionMeta::class.java) {
                 it.potionType(PotionType.STRENGTH)
+                it.hideFlag(ItemHideFlag.HIDE_POTION_EFFECTS)
+                it.effects(listOf(customPotionEffect(PotionEffect.STRENGTH, 0, 25 * 20)))
             }
         },
         Item(Material.POTION, rare) {
             it.meta(PotionMeta::class.java) {
                 it.potionType(PotionType.REGENERATION)
+                it.hideFlag(ItemHideFlag.HIDE_POTION_EFFECTS)
             }
         },
         Item(Material.SPLASH_POTION, rare) {
             it.meta(PotionMeta::class.java) {
                 it.potionType(PotionType.STRONG_HARMING)
+                it.hideFlag(ItemHideFlag.HIDE_POTION_EFFECTS)
             }
         },
 //        Item(Material.LINGERING_POTION, rare) {
@@ -139,18 +148,22 @@ object Items {
         Item(Material.SPLASH_POTION, rare) {
             it.meta(PotionMeta::class.java) {
                 it.potionType(PotionType.POISON)
+                it.effects(listOf(customPotionEffect(PotionEffect.POISON, 1, 15 * 20)))
+                it.hideFlag(ItemHideFlag.HIDE_POTION_EFFECTS)
             }
         },
         Item(Material.SPLASH_POTION, rare) {
             it.meta(PotionMeta::class.java) {
                 it.effects(listOf(customPotionEffect(PotionEffect.SLOWNESS, 0, 45 * 20)))
                 it.potionType(PotionType.SLOWNESS)
+                it.hideFlag(ItemHideFlag.HIDE_POTION_EFFECTS)
             }
         },
         Item(Material.SPLASH_POTION, rare) {
             it.meta(PotionMeta::class.java) {
                 it.effects(listOf(customPotionEffect(PotionEffect.WEAKNESS, 0, 45 * 20)))
                 it.potionType(PotionType.WEAKNESS)
+                it.hideFlag(ItemHideFlag.HIDE_POTION_EFFECTS)
             }
         },
 

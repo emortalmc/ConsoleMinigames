@@ -1,6 +1,8 @@
 package dev.emortal.consoleminigames.game
 
 import dev.emortal.consoleminigames.ConsoleMinigamesExtension
+import dev.emortal.consoleminigames.game.BattlePlayerHelper.cleanup
+import dev.emortal.consoleminigames.game.BattlePlayerHelper.kills
 import dev.emortal.consoleminigames.item.Items
 import dev.emortal.consoleminigames.item.addRandomly
 import dev.emortal.immortal.config.GameOptions
@@ -8,6 +10,7 @@ import dev.emortal.immortal.game.GameManager
 import dev.emortal.immortal.game.GameState
 import dev.emortal.immortal.game.PvpGame
 import dev.emortal.immortal.util.MinestomRunnable
+import dev.emortal.immortal.util.armify
 import io.github.bloepiloepi.pvp.PvpExtension
 import io.github.bloepiloepi.pvp.damage.CustomDamageType
 import io.github.bloepiloepi.pvp.damage.CustomEntityDamage
@@ -31,10 +34,7 @@ import net.minestom.server.event.inventory.InventoryCloseEvent
 import net.minestom.server.event.inventory.InventoryPreClickEvent
 import net.minestom.server.event.item.ItemDropEvent
 import net.minestom.server.event.item.PickupItemEvent
-import net.minestom.server.event.player.PlayerBlockInteractEvent
-import net.minestom.server.event.player.PlayerBlockPlaceEvent
-import net.minestom.server.event.player.PlayerEatEvent
-import net.minestom.server.event.player.PlayerMoveEvent
+import net.minestom.server.event.player.*
 import net.minestom.server.instance.AnvilLoader
 import net.minestom.server.instance.Instance
 import net.minestom.server.instance.block.Block
@@ -46,7 +46,6 @@ import net.minestom.server.sound.SoundEvent
 import net.minestom.server.tag.Tag
 import net.minestom.server.utils.PacketUtils
 import net.minestom.server.utils.time.TimeUnit
-import org.tinylog.kotlin.Logger
 import world.cepi.kstom.Manager
 import world.cepi.kstom.event.listenOnly
 import world.cepi.kstom.util.playSound
@@ -101,6 +100,10 @@ class BattleGame(gameOptions: GameOptions) : PvpGame(gameOptions) {
                     return@listenOnly
                 }
             }
+        }
+
+        eventNode.listenOnly<PlayerSpectateEvent> {
+            isCancelled = true
         }
 
         eventNode.listenOnly<PlayerExhaustEvent> {
@@ -212,6 +215,8 @@ class BattleGame(gameOptions: GameOptions) : PvpGame(gameOptions) {
         val refillInterval = Duration.ofSeconds(75)
         object : MinestomRunnable(coroutineScope = coroutineScope, delay = refillInterval, repeat = refillInterval) {
             override suspend fun run() {
+                if (gameState == GameState.ENDING) return
+
                 refillChests()
 
                 sendMessage(
@@ -264,9 +269,6 @@ class BattleGame(gameOptions: GameOptions) : PvpGame(gameOptions) {
         openedChests.clear()
     }
 
-    override fun gameDestroyed() {
-
-    }
 
     var firstJoin = true
     override fun playerJoin(player: Player) {
@@ -286,6 +288,17 @@ class BattleGame(gameOptions: GameOptions) : PvpGame(gameOptions) {
     }
 
     override fun registerEvents() {
+        eventNode.listenOnly<PlayerTickEvent> {
+            val insideBlock = instance.getBlock(player.position)
+
+            if (insideBlock.compare(Block.WATER) && player.isOnFire) {
+                player.isOnFire = false
+            }
+            if (insideBlock.compare(Block.FIRE)) {
+                player.setFireDamagePeriod(Duration.ofSeconds(7))
+            }
+        }
+
         eventNode.listenOnly<ExplosionEvent> {
             this.affectedBlocks.clear()
         }
@@ -420,6 +433,8 @@ class BattleGame(gameOptions: GameOptions) : PvpGame(gameOptions) {
 
 
         if (killer != null && killer is Player) {
+            killer.kills++
+
             killer.playSound(Sound.sound(SoundEvent.BLOCK_ANVIL_LAND, Sound.Source.MASTER, 0.35f, 2f), Sound.Emitter.self())
 
             sendMessage(
@@ -442,10 +457,8 @@ class BattleGame(gameOptions: GameOptions) : PvpGame(gameOptions) {
 
         val alivePlayers = players.filter { it.gameMode == GameMode.ADVENTURE }
 
-        Logger.info(alivePlayers)
-
-        if (alivePlayers.size == 1) {
-            victory(alivePlayers.first())
+        if (alivePlayers.size <= 1) {
+            victory(alivePlayers)
         } else {
             sendMessage(
                 Component.text()
@@ -482,6 +495,43 @@ class BattleGame(gameOptions: GameOptions) : PvpGame(gameOptions) {
         pos = pos.withDirection(angle1).withPitch(0f)
 
         return pos
+    }
+
+    override fun gameDestroyed() {
+        players.forEach {
+            it.cleanup()
+        }
+    }
+
+    override fun gameWon(winningPlayers: Collection<Player>) {
+        val lastManStanding = winningPlayers.firstOrNull() ?: return
+        val highestKiller = players.maxByOrNull { it.kills }
+
+        val message = Component.text()
+            .append(Component.text(" ${" ".repeat(25)}VICTORY", NamedTextColor.GOLD, TextDecoration.BOLD))
+            .append(Component.text("\n\n Winner: ", NamedTextColor.GRAY))
+            .append(Component.text(lastManStanding.username, NamedTextColor.GREEN))
+            .also {
+                if (highestKiller != null) {
+                    it.append(Component.text("\n Highest killer: ", NamedTextColor.GRAY))
+                    it.append(Component.text(highestKiller.username, NamedTextColor.YELLOW))
+                }
+            }
+
+        message.append(Component.newline())
+
+        players.sortedBy { it.kills }.reversed().take(5).forEach { plr ->
+            message.append(
+                Component.text()
+                    .append(Component.newline())
+                    .append(Component.space())
+                    .append(Component.text(plr.username, NamedTextColor.GRAY))
+                    .append(Component.text(" - ", NamedTextColor.DARK_GRAY))
+                    .append(Component.text(plr.kills, NamedTextColor.WHITE))
+            )
+        }
+
+        sendMessage(message.armify())
     }
 
     override fun instanceCreate(): Instance {
