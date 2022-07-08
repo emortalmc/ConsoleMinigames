@@ -19,7 +19,7 @@ dependencies {
 
     compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-json:1.3.3")
     compileOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.3")
-    implementation("com.github.EmortalMC:MinestomPvP:26e48b6a6f")
+    implementation("com.github.EmortalMC:MinestomPvP:de4104ca7c")
 }
 
 tasks {

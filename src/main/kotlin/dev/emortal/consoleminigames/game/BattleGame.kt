@@ -63,7 +63,7 @@ class BattleGame(gameOptions: GameOptions) : PvpGame(gameOptions) {
     companion object {
         val centerPos = Pos(268.5, 26.0, 12.5)
 
-        val blockedItemStack = ItemStack.builder(Material.GRAY_STAINED_GLASS_PANE)
+        val blockedItemStack = ItemStack.builder(Material.BARRIER)
             .displayName(Component.empty())
             .build()
     }
@@ -79,6 +79,13 @@ class BattleGame(gameOptions: GameOptions) : PvpGame(gameOptions) {
     private var playersInvulnerable = true
 
     init {
+        eventNode.listenOnly<InventoryPreClickEvent> {
+            if (clickedItem.material() == blockedItemStack.material()) {
+                isCancelled = true
+                this.cursorItem = ItemStack.AIR
+            }
+        }
+
         eventNode.listenOnly<FinalDamageEvent> {
             val player = entity as? Player ?: return@listenOnly
 
@@ -390,14 +397,6 @@ class BattleGame(gameOptions: GameOptions) : PvpGame(gameOptions) {
                     )
                 }
 
-            }
-        }
-
-        eventNode.listenOnly<InventoryPreClickEvent> {
-
-            if (clickedItem.material() == blockedItemStack.material()) {
-                isCancelled = true
-                this.cursorItem = ItemStack.AIR
             }
         }
 
