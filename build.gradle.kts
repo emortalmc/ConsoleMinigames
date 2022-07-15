@@ -15,11 +15,11 @@ repositories {
 
 dependencies {
     compileOnly("com.github.Minestom:Minestom:1d469ca6a6")
-    compileOnly("com.github.EmortalMC:Immortal:be9d4f3e00")
+    compileOnly("com.github.EmortalMC:Immortal:cd2475004d")
 
     compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-json:1.3.3")
     compileOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.4")
-    implementation("com.github.EmortalMC:MinestomPvP:de4104ca7c")
+    implementation("com.github.EmortalMC:MinestomPvP:e2ed02e73a")
 }
 
 tasks {

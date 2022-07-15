@@ -41,6 +41,9 @@ object Items {
     val items = listOf(
         // Consumables
         Item(Material.APPLE, common),
+        Item(Material.APPLE, common),
+        Item(Material.COOKED_BEEF, common),
+        Item(Material.COOKED_PORKCHOP, common),
         Item(Material.COOKED_PORKCHOP, common),
         Item(Material.GOLDEN_APPLE, veryrare),
 
@@ -56,22 +59,28 @@ object Items {
 
         // Swords
         Item(Material.WOODEN_SWORD, uncommon),
+        Item(Material.GOLDEN_SWORD, uncommon),
         Item(Material.STONE_SWORD, rare),
+        Item(Material.IRON_SHOVEL, veryrare),
         Item(Material.DIAMOND_SWORD, epic) { it.meta { it.damage(781) } }, // half durability
 
         // Axes
         Item(Material.WOODEN_AXE, rare),
+        Item(Material.GOLDEN_AXE, rare),
         Item(Material.STONE_AXE, veryrare),
         Item(Material.IRON_AXE, epic),
+        Item(Material.DIAMOND_AXE, legendary),
 
         // Pickaxes
         Item(Material.WOODEN_PICKAXE, lesscommon),
+        Item(Material.GOLDEN_PICKAXE, lesscommon),
         Item(Material.STONE_PICKAXE, uncommon),
         Item(Material.IRON_PICKAXE, rare),
         Item(Material.DIAMOND_PICKAXE, veryrare),
 
         // Shovels
         Item(Material.WOODEN_SHOVEL, lesscommon),
+        Item(Material.GOLDEN_SHOVEL, lesscommon),
         Item(Material.STONE_SHOVEL, uncommon),
         Item(Material.IRON_SHOVEL, rare),
         Item(Material.DIAMOND_SHOVEL, veryrare),
@@ -99,7 +108,7 @@ object Items {
         },
 
         // Potions
-        Item(Material.TOTEM_OF_UNDYING, legendary),
+        //Item(Material.TOTEM_OF_UNDYING, legendary),
         Item(Material.POTION, rare) {
             it.meta(PotionMeta::class.java) {
                 it.potionType(PotionType.STRONG_HEALING)
