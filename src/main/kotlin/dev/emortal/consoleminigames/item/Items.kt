@@ -127,7 +127,7 @@ object Items {
         Item(Material.POTION, rare) {
             it.meta(PotionMeta::class.java) {
                 it.potionType(PotionType.INVISIBILITY)
-                it.effects(listOf(customPotionEffect(PotionEffect.INVISIBILITY, 0, 60 * 20)))
+                it.effects(listOf(customPotionEffect(PotionEffect.INVISIBILITY, 0, 20 * 20)))
             }
         },
         Item(Material.POTION, rare) {

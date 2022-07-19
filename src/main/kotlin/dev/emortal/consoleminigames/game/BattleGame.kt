@@ -68,7 +68,6 @@ import java.util.stream.Collectors
 import kotlin.io.path.nameWithoutExtension
 import kotlin.math.PI
 import kotlin.math.cos
-import kotlin.math.round
 import kotlin.math.sin
 
 
@@ -153,20 +152,23 @@ class BattleGame(gameOptions: GameOptions) : PvpGame(gameOptions) {
 
         refillChests()
 
-        scoreboard?.createLine(
-            Sidebar.ScoreboardLine(
-                "showdownTimer",
-                Component.empty(),
-                3
-            )
-        )
-
         val secondsToStart = 10
         val invulnerabilitySeconds = 15
         val secsUntilShowdown = players.size * 1.5 * 60L
 
         val bossBar = BossBar.bossBar(Component.text("Time to start: $secondsToStart seconds"), 1f, BossBar.Color.WHITE, BossBar.Overlay.PROGRESS)
         showBossBar(bossBar)
+
+        scoreboard?.createLine(
+            Sidebar.ScoreboardLine(
+                "playersLeft",
+                Component.text()
+                    .append(Component.text("Players: ", NamedTextColor.GRAY))
+                    .append(Component.text(players.size, NamedTextColor.RED))
+                    .build(),
+                1
+            )
+        )
 
         // Starting bossbar loop
         object : MinestomRunnable(taskGroup = taskGroup, repeat = Duration.ofSeconds(1), iterations = secondsToStart.toLong()) {
@@ -197,7 +199,13 @@ class BattleGame(gameOptions: GameOptions) : PvpGame(gameOptions) {
                 object : MinestomRunnable(taskGroup = taskGroup, repeat = Duration.ofSeconds(1), iterations = secsUntilShowdown.toLong()) {
 
                     override fun run() {
-                        scoreboard?.updateLineContent("showdownTimer", Component.text("Showdown in ${(iterations - currentIteration).parsed()}", NamedTextColor.GREEN))
+                        scoreboard?.updateLineContent(
+                            "infoLine",
+                            Component.text()
+                                .append(Component.text("Showdown in ", TextColor.color(59, 128, 59)))
+                                .append(Component.text((iterations - currentIteration).parsed(), NamedTextColor.GREEN))
+                                .build()
+                        )
                     }
 
                     override fun cancelled() {
@@ -517,18 +525,13 @@ class BattleGame(gameOptions: GameOptions) : PvpGame(gameOptions) {
 
             killer.playSound(Sound.sound(SoundEvent.BLOCK_ANVIL_LAND, Sound.Source.MASTER, 0.35f, 2f), Sound.Emitter.self())
 
-            val health = (round(killer.health * 100.0) / 100.0).toString()
-                .also {
-                    if (it.contains(".")) it.replace("0*$", "").replace("\\.$", "")
-                }
-
             player.sendMessage(
                 Component.text()
                     .append(Component.text(killer.username, NamedTextColor.RED, TextDecoration.BOLD))
                     .append(Component.text(" was on ", TextColor.color(209, 50, 50)))
-                    .append(Component.text("❤ $health/${player.maxHealth.toInt()}", NamedTextColor.RED))
+                    .append(Component.text("❤ ${killer.health.toInt()}/${killer.maxHealth.toInt()}", NamedTextColor.RED))
                     .also {
-                        if (killer.health < 1.0) {
+                        if (killer.health < 1.5) {
                             it.append(Component.text(" (so close!)", TextColor.color(82, 11, 11)))
                         }
                     }
@@ -561,6 +564,14 @@ class BattleGame(gameOptions: GameOptions) : PvpGame(gameOptions) {
                 Component.text()
                     .append(Component.text(alivePlayers.size, NamedTextColor.RED))
                     .append(Component.text(" players left!", TextColor.color(209, 50, 50)))
+            )
+
+            scoreboard?.updateLineContent(
+                "playersLeft",
+                Component.text()
+                    .append(Component.text("Players: ", NamedTextColor.GRAY))
+                    .append(Component.text(alivePlayers.size, NamedTextColor.RED))
+                    .build()
             )
         }
 
