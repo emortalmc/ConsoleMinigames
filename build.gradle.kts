@@ -16,6 +16,7 @@ repositories {
 dependencies {
     compileOnly("com.github.Minestom:Minestom:1d469ca6a6")
     compileOnly("com.github.EmortalMC:Immortal:cd2475004d")
+    compileOnly("com.github.EmortalMC:TNT:61bc234136")
 
     compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-json:1.3.3")
     compileOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.4")

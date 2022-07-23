@@ -12,6 +12,8 @@ import dev.emortal.immortal.game.PvpGame
 import dev.emortal.immortal.util.MinestomRunnable
 import dev.emortal.immortal.util.armify
 import dev.emortal.immortal.util.parsed
+import dev.emortal.tnt.TNTLoader
+import dev.emortal.tnt.source.FileTNTSource
 import io.github.bloepiloepi.pvp.PvpExtension
 import io.github.bloepiloepi.pvp.damage.CustomDamageType
 import io.github.bloepiloepi.pvp.damage.CustomEntityDamage
@@ -36,7 +38,6 @@ import net.minestom.server.event.inventory.InventoryPreClickEvent
 import net.minestom.server.event.item.ItemDropEvent
 import net.minestom.server.event.item.PickupItemEvent
 import net.minestom.server.event.player.*
-import net.minestom.server.instance.AnvilLoader
 import net.minestom.server.instance.Instance
 import net.minestom.server.instance.block.Block
 import net.minestom.server.instance.block.BlockHandler.Dummy
@@ -708,7 +709,7 @@ class BattleGame(gameOptions: GameOptions) : PvpGame(gameOptions) {
             .random()
 
         val newInstance = Manager.instance.createInstanceContainer()
-        newInstance.chunkLoader = AnvilLoader("./battle-maps/$randomMap")
+        newInstance.chunkLoader = TNTLoader(newInstance, FileTNTSource(Path.of("./battle-maps/${randomMap}.tnt")))
         newInstance.timeUpdate = null
         newInstance.timeRate = 0
         newInstance.setTag(GameManager.doNotAutoUnloadChunkTag, true)
