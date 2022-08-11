@@ -11,9 +11,8 @@ import dev.emortal.immortal.game.GameState
 import dev.emortal.immortal.game.PvpGame
 import dev.emortal.immortal.util.MinestomRunnable
 import dev.emortal.immortal.util.armify
+import dev.emortal.immortal.util.getBlock
 import dev.emortal.immortal.util.parsed
-import dev.emortal.tnt.TNTLoader
-import dev.emortal.tnt.source.FileTNTSource
 import io.github.bloepiloepi.pvp.PvpExtension
 import io.github.bloepiloepi.pvp.damage.CustomDamageType
 import io.github.bloepiloepi.pvp.damage.CustomEntityDamage
@@ -38,6 +37,7 @@ import net.minestom.server.event.inventory.InventoryPreClickEvent
 import net.minestom.server.event.item.ItemDropEvent
 import net.minestom.server.event.item.PickupItemEvent
 import net.minestom.server.event.player.*
+import net.minestom.server.instance.AnvilLoader
 import net.minestom.server.instance.Instance
 import net.minestom.server.instance.block.Block
 import net.minestom.server.instance.block.BlockHandler.Dummy
@@ -64,6 +64,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.time.Duration
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CopyOnWriteArraySet
 import java.util.concurrent.ThreadLocalRandom
 import java.util.stream.Collectors
 import kotlin.io.path.nameWithoutExtension
@@ -73,6 +74,12 @@ import kotlin.math.sin
 
 
 class BattleGame(gameOptions: GameOptions) : PvpGame(gameOptions) {
+
+    var battleOptions: BattleOptions? = null
+
+    constructor(gameOptions: GameOptions, battleOptions: BattleOptions) : this(gameOptions) {
+        this.battleOptions = battleOptions
+    }
 
     companion object {
 
@@ -85,9 +92,9 @@ class BattleGame(gameOptions: GameOptions) : PvpGame(gameOptions) {
     private lateinit var centerPos: Pos
     private var circleSize: Double = 0.0
 
-    private val chests = mutableSetOf<Point>()
+    private val chests = CopyOnWriteArraySet<Point>()
     //private val openedChests = chests.toMutableSet() // toMutableList makes sure we have a copy instead of modifying cavernsChests directly
-    private val unopenedRefilledChests = mutableSetOf<Point>()
+    private val unopenedRefilledChests = CopyOnWriteArraySet<Point>()
 
     //override var spawnPosition: Pos = Pos(268.5, 26.0, -0.5)
 
@@ -95,6 +102,7 @@ class BattleGame(gameOptions: GameOptions) : PvpGame(gameOptions) {
 
     private var gameStarted = false
     private var playersInvulnerable = true
+    private var borderActive = false
 
     init {
         eventNode.listenOnly<InventoryPreClickEvent> {
@@ -140,25 +148,35 @@ class BattleGame(gameOptions: GameOptions) : PvpGame(gameOptions) {
         eventNode.listenOnly<FinalAttackEvent> {
             if (gameState != GameState.PLAYING || playersInvulnerable) isCancelled = true
         }
+
+        eventNode.addChild(PvpExtension.events())
     }
 
+    var bossBar: BossBar? = null
+
     override fun gameStarted() {
-        players.forEachIndexed { i, player ->
-            player.teleport(getCircleSpawnPosition(i))
+        players.forEachIndexed { index, player ->
+            player.teleport(getCircleSpawnPosition(index))
         }
 
         eventNode.listenOnly<PlayerMoveEvent> {
-            if (!gameStarted) if (!this.player.position.samePoint(newPosition)) isCancelled = true
+            if (!gameStarted)
+                if (!this.player.position.samePoint(newPosition))
+                    isCancelled = true
         }
 
-        refillChests()
+        var secondsToStart = 10
+        var invulnerabilitySeconds = 15
 
-        val secondsToStart = 10
-        val invulnerabilitySeconds = 15
+        if (System.getProperty("debug").toBoolean()) {
+            secondsToStart = 1
+            invulnerabilitySeconds = 1
+        }
+
         val secsUntilShowdown = players.size * 1.5 * 60L
 
-        val bossBar = BossBar.bossBar(Component.text("Time to start: $secondsToStart seconds"), 1f, BossBar.Color.WHITE, BossBar.Overlay.PROGRESS)
-        showBossBar(bossBar)
+        bossBar = BossBar.bossBar(Component.text("Time to start: $secondsToStart seconds"), 1f, BossBar.Color.WHITE, BossBar.Overlay.PROGRESS)
+        showBossBar(bossBar!!)
 
         scoreboard?.createLine(
             Sidebar.ScoreboardLine(
@@ -176,9 +194,9 @@ class BattleGame(gameOptions: GameOptions) : PvpGame(gameOptions) {
             var lastNum = secondsToStart
 
             override fun run() {
-                bossBar.progress(1f - (currentIteration.toFloat() / iterations.toFloat()))
+                bossBar!!.progress(1f - (currentIteration.toFloat() / iterations.toFloat()))
 
-                bossBar.name(Component.text("Time to start: $lastNum seconds"))
+                bossBar!!.name(Component.text("Time to start: $lastNum seconds"))
                 if (lastNum <= 5) {
                     playSound(
                         Sound.sound(SoundEvent.BLOCK_NOTE_BLOCK_BASS, Sound.Source.MASTER, 2f, 1f),
@@ -193,8 +211,8 @@ class BattleGame(gameOptions: GameOptions) : PvpGame(gameOptions) {
 
                 playSound(Sound.sound(SoundEvent.ENTITY_ENDER_DRAGON_GROWL, Sound.Source.MASTER, 1f, 1.3f))
 
-                bossBar.name(Component.text("Round start!"))
-                bossBar.progress(1f)
+                bossBar!!.name(Component.text("Round start!"))
+                bossBar!!.progress(1f)
 
                 // Showdown timer
                 object : MinestomRunnable(taskGroup = taskGroup, repeat = Duration.ofSeconds(1), iterations = secsUntilShowdown.toLong()) {
@@ -223,9 +241,9 @@ class BattleGame(gameOptions: GameOptions) : PvpGame(gameOptions) {
                     var progress = 1f
 
                     override fun run() {
-                        bossBar.progress(1f - (currentIteration.toFloat() / iterations.toFloat()))
+                        bossBar!!.progress(1f - (currentIteration.toFloat() / iterations.toFloat()))
 
-                        bossBar.name(Component.text("Invulnerability wears off in $lastNum seconds!"))
+                        bossBar!!.name(Component.text("Invulnerability wears off in $lastNum seconds!"))
                         if (lastNum <= 3) {
                             playSound(Sound.sound(SoundEvent.BLOCK_NOTE_BLOCK_BASS, Sound.Source.MASTER, 2f, 1f))
                         }
@@ -235,8 +253,8 @@ class BattleGame(gameOptions: GameOptions) : PvpGame(gameOptions) {
                     override fun cancelled() {
                         playSound(Sound.sound(SoundEvent.ENTITY_ELDER_GUARDIAN_CURSE, Sound.Source.MASTER, 1f, 0.7f), Sound.Emitter.self())
 
-                        bossBar.progress(0f)
-                        bossBar.name(Component.text("Invulnerability has worn off! Fight!"))
+                        bossBar!!.progress(0f)
+                        bossBar!!.name(Component.text("Invulnerability has worn off! Fight!"))
                         sendMessage(
                             Component.text()
                                 .append(Component.text("☠", NamedTextColor.RED))
@@ -248,9 +266,9 @@ class BattleGame(gameOptions: GameOptions) : PvpGame(gameOptions) {
 
                         playersInvulnerable = false
 
-                        instance.scheduler().buildTask {
-                            hideBossBar(bossBar)
-                        }.delay(Duration.ofSeconds(2)).schedule()
+                        instance.get()?.scheduler()?.buildTask {
+                            hideBossBar(bossBar!!)
+                        }?.delay(Duration.ofSeconds(2))?.schedule()
                     }
                 }
             }
@@ -263,6 +281,7 @@ class BattleGame(gameOptions: GameOptions) : PvpGame(gameOptions) {
                 if (gameState == GameState.ENDING) return
 
                 val chestsRefilled = refillChests()
+                if (chestsRefilled == 0) return
 
                 sendMessage(
                     Component.text()
@@ -286,10 +305,10 @@ class BattleGame(gameOptions: GameOptions) : PvpGame(gameOptions) {
                 )
 
                 playSound(Sound.sound(SoundEvent.BLOCK_ENDER_CHEST_OPEN, Sound.Source.MASTER, 1f, 1f), Sound.Emitter.self())
-                instance.scheduler().buildTask {
+                instance.get()?.scheduler()?.buildTask {
                     playSound(Sound.sound(SoundEvent.BLOCK_ENDER_CHEST_CLOSE, Sound.Source.MASTER, 1f, 1f), Sound.Emitter.self())
-                }.delay(Duration.ofMillis(1250)).schedule()
-                instance.scheduler().buildTask {
+                }?.delay(Duration.ofMillis(1250))?.schedule()
+                instance.get()?.scheduler()?.buildTask {
                     showTitle(
                         Title.title(
                             Component.empty(),
@@ -297,7 +316,7 @@ class BattleGame(gameOptions: GameOptions) : PvpGame(gameOptions) {
                             Title.Times.times(Duration.ZERO, Duration.ofMillis(500), Duration.ofMillis(500))
                         )
                     )
-                }.delay(Duration.ofMillis(1600)).schedule()
+                }?.delay(Duration.ofMillis(1600))?.schedule()
             }
         }
 
@@ -307,7 +326,7 @@ class BattleGame(gameOptions: GameOptions) : PvpGame(gameOptions) {
                 val rand = ThreadLocalRandom.current()
 
                 unopenedRefilledChests.forEach {
-                    instance.showParticle(
+                    showParticle(
                         Particle.particle(
                             type = ParticleType.CRIT,
                             count = 0,
@@ -325,13 +344,14 @@ class BattleGame(gameOptions: GameOptions) : PvpGame(gameOptions) {
         val chestsRefilled = rand.nextInt(4, 6).coerceAtMost(chests.size)
 
         chests.filter { !unopenedRefilledChests.contains(it) }.shuffled().take(chestsRefilled).forEach {
-            val chest = instance.getBlock(it).handler() as SingleChestHandler
+            val chest = instance.getBlock(it)?.handler() as SingleChestHandler
+            val isRarerChest = instance.getBlock(it.add(0.0, 1.0, 0.0))!!.compare(Block.STRUCTURE_VOID)
 
             unopenedRefilledChests.add(it)
 
             chest.inventory.clear()
             repeat(7) {
-                chest.inventory.addRandomly(Items.randomItem().itemStack)
+                chest.inventory.addRandomly(Items.randomItem(isRarerChest).itemStack)
             }
         }
 
@@ -343,13 +363,13 @@ class BattleGame(gameOptions: GameOptions) : PvpGame(gameOptions) {
     override fun playerJoin(player: Player) {
         if (firstJoin) {
             firstJoin = false
-            instance.enableAutoChunkLoad(false)
+            //instance.get()?.enableAutoChunkLoad(false)
         }
 
         for (i in 9..40) { // just the inventory minus hotbar
             player.inventory.setItemStack(i, blockedItemStack)
         }
-        PvpExtension.setLegacyAttack(player, true)
+        //PvpExtension.setLegacyAttack(player, true)
     }
 
     override fun playerLeave(player: Player) {
@@ -357,6 +377,7 @@ class BattleGame(gameOptions: GameOptions) : PvpGame(gameOptions) {
     }
 
     override fun registerEvents() {
+
         eventNode.listenOnly<EntityTickEvent> {
             if (entity.entityType == EntityType.ITEM && !entity.isOnFire) {
                 val block = instance.getBlock(entity.position)
@@ -372,6 +393,17 @@ class BattleGame(gameOptions: GameOptions) : PvpGame(gameOptions) {
 
         eventNode.listenOnly<PlayerTickEvent> {
             val insideBlock = instance.getBlock(player.position)
+
+            if (borderActive && player.gameMode == GameMode.ADVENTURE) {
+                val point = player.position
+                val radius: Double = (instance.worldBorder.diameter / 2.0) + 1.5
+                val checkX = point.x() <= instance.worldBorder.centerX + radius && point.x() >= instance.worldBorder.centerX - radius
+                val checkZ = point.z() <= instance.worldBorder.centerZ + radius && point.z() >= instance.worldBorder.centerZ - radius
+
+                if (!checkX || !checkZ) {
+                    kill(player)
+                }
+            }
 
             val blocksInHitbox = pointsBetween(player.boundingBox.relativeStart().add(player.position), player.boundingBox.relativeEnd().add(player.position))
 
@@ -459,8 +491,11 @@ class BattleGame(gameOptions: GameOptions) : PvpGame(gameOptions) {
                     val chest = SingleChestHandler.create()
                     val handler = chest.handler() as SingleChestHandler
                     instance.setBlock(blockPosition, chest)
+
+                    val isRarerChest = instance.getBlock(blockPosition.add(0.0, 1.0, 0.0)).compare(Block.STRUCTURE_VOID)
+
                     repeat(7) {
-                        handler.inventory.addRandomly(Items.randomItem().itemStack)
+                        handler.inventory.addRandomly(Items.randomItem(isRarerChest).itemStack)
                     }
 
                     chests.add(blockPosition)
@@ -593,6 +628,17 @@ class BattleGame(gameOptions: GameOptions) : PvpGame(gameOptions) {
     }
 
     private fun showdown() {
+        players.forEachIndexed { i, player ->
+            player.teleport(getCircleSpawnPosition(i))
+        }
+
+        borderActive = true
+
+        val instance = instance.get() ?: return
+        instance.worldBorder.setCenter(centerPos.x.toFloat(), centerPos.z.toFloat())
+        instance.worldBorder.setDiameter((circleSize * 2) + 1.5)
+        instance.worldBorder.warningBlocks = 0
+
         playSound(Sound.sound(SoundEvent.ENTITY_WITHER_SPAWN, Sound.Source.MASTER, 0.25f, 2f), Sound.Emitter.self())
 
         showTitle(
@@ -608,8 +654,6 @@ class BattleGame(gameOptions: GameOptions) : PvpGame(gameOptions) {
                 .append(Component.text("☠", NamedTextColor.GOLD))
                 .append(Component.text(" | ", NamedTextColor.DARK_GRAY))
                 .append(Component.text("Showdown has activated!", NamedTextColor.GOLD))
-                .append(Component.text(" All remaining players will now", NamedTextColor.GRAY))
-                .append(Component.text(" glow", NamedTextColor.GOLD))
                 .append(Component.text("!", NamedTextColor.GRAY))
                 .build()
         )
@@ -624,17 +668,7 @@ class BattleGame(gameOptions: GameOptions) : PvpGame(gameOptions) {
         object : MinestomRunnable(taskGroup = taskGroup, repeat = Duration.ofSeconds(1), iterations = 2L * 60L) {
 
             override fun run() {
-                if (currentIteration == 0L) { // first iteration
-                    scoreboard?.createLine(
-                        Sidebar.ScoreboardLine(
-                            "gameEndTimer",
-                            Component.text("Game end in ${(iterations - currentIteration).parsed()}", NamedTextColor.GREEN),
-                            1
-                        )
-                    )
-                }
-
-                scoreboard?.updateLineContent("gameEndTimer", Component.text("Game end in ${(iterations - currentIteration).parsed()}", NamedTextColor.GREEN))
+                scoreboard?.updateLineContent("infoLine", Component.text("Game end in ${(iterations - currentIteration).parsed()}", NamedTextColor.GREEN))
             }
 
             override fun cancelled() {
@@ -703,21 +737,25 @@ class BattleGame(gameOptions: GameOptions) : PvpGame(gameOptions) {
     }
 
     override fun instanceCreate(): Instance {
-        val randomMap = Files.list(Path.of("./battle-maps/"))
-            .map { it.nameWithoutExtension }
-            .collect(Collectors.toSet())
-            .random()
+        val map = if (battleOptions == null) {
+            Files.list(Path.of("./battle-maps/"))
+                .map { it.nameWithoutExtension }
+                .collect(Collectors.toSet())
+                .random()
+        } else {
+            battleOptions!!.map
+        }
 
         val newInstance = Manager.instance.createInstanceContainer()
-        newInstance.chunkLoader = TNTLoader(newInstance, FileTNTSource(Path.of("./battle-maps/${randomMap}.tnt")))
+        newInstance.chunkLoader = AnvilLoader(Path.of("./battle-maps/${map}"))
         newInstance.timeUpdate = null
         newInstance.timeRate = 0
         newInstance.setTag(GameManager.doNotAutoUnloadChunkTag, true)
         newInstance.explosionSupplier = PvpExplosionSupplier.INSTANCE
 
-        val config = ConsoleMinigamesExtension.config.mapSpawnPositions[randomMap]
+        val config = ConsoleMinigamesExtension.config.mapSpawnPositions[map]
         if (config == null) {
-            Logger.warn("No config for map $randomMap")
+            Logger.warn("No config for map $map")
             return newInstance
         }
         centerPos = config.circleCenterPos

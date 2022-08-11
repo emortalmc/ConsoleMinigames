@@ -7,8 +7,11 @@ import net.kyori.adventure.text.format.TextDecoration
 import net.minestom.server.item.ItemHideFlag
 import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
+import kotlin.math.abs
 
 class Item(val material: Material, val weight: Int, val itemCreate: (ItemStack.Builder) -> Unit = { }) {
+
+    val rarerWeight = abs(weight - 16)
 
     val itemStack: ItemStack get() {
 
@@ -18,7 +21,7 @@ class Item(val material: Material, val weight: Int, val itemCreate: (ItemStack.B
                 val tool = Tool.fromMaterial(material)
 
                 if (tool != null) {
-                    val damage = tool.legacyAttackDamage.toInt()
+                    val damage = tool.attackDamage.toInt()
 
                     it.lore(
                         Component.text()

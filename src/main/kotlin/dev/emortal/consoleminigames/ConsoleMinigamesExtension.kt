@@ -1,6 +1,8 @@
 package dev.emortal.consoleminigames
 
+import dev.emortal.consoleminigames.commands.VoteCommand
 import dev.emortal.consoleminigames.game.BattleGame
+import dev.emortal.consoleminigames.game.ConsoleLobby
 import dev.emortal.immortal.config.ConfigHelper
 import dev.emortal.immortal.config.GameOptions
 import dev.emortal.immortal.game.GameManager
@@ -12,7 +14,8 @@ import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.extensions.Extension
 import net.minestom.server.instance.InstanceContainer
 import org.tinylog.kotlin.Logger
-import world.cepi.kstom.Manager
+import world.cepi.kstom.command.register
+import world.cepi.kstom.command.unregister
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.stream.Collectors
@@ -41,25 +44,43 @@ class ConsoleMinigamesExtension : Extension() {
         config = ConfigHelper.initConfigFile(Path.of("./minigames.json"), minigamesConfig)
 
         PvpExtension.init()
-        Manager.globalEvent.addChild(PvpExtension.legacyEvents())
 
         GameManager.registerGame<BattleGame>(
-            "battle",
+            "battlegame",
             Component.text("Battle", NamedTextColor.RED),
+            showsInSlashPlay = false,
+            canSpectate = true,
+            WhenToRegisterEvents.NEVER,
+            GameOptions(
+                maxPlayers = 8,
+                minPlayers = 2,
+                countdownSeconds = 0
+            )
+        )
+
+        GameManager.registerGame<ConsoleLobby>(
+            "battle",
+            Component.text("Battle Lobby", NamedTextColor.RED),
             showsInSlashPlay = true,
             canSpectate = true,
             WhenToRegisterEvents.NEVER,
             GameOptions(
                 maxPlayers = 8,
                 minPlayers = 2,
-                countdownSeconds = 15
+                countdownSeconds = 20,
+                showScoreboard = true,
+                showsJoinLeaveMessages = false // replaced inside consolelobby
             )
         )
+
+        VoteCommand.register()
 
         Logger.info("[${origin.name}] Initialized!")
     }
 
     override fun terminate() {
+        VoteCommand.unregister()
+
         Logger.info("[${origin.name}] Terminated!")
     }
 
