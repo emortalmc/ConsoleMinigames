@@ -6,7 +6,9 @@ import dev.emortal.consoleminigames.game.BattlePlayerHelper.kills
 import dev.emortal.consoleminigames.item.Items
 import dev.emortal.consoleminigames.item.addRandomly
 import dev.emortal.immortal.config.GameOptions
+import dev.emortal.immortal.event.GameDestroyEvent
 import dev.emortal.immortal.game.GameManager
+import dev.emortal.immortal.game.GameManager.joinGameOrNew
 import dev.emortal.immortal.game.GameState
 import dev.emortal.immortal.game.PvpGame
 import dev.emortal.immortal.util.MinestomRunnable
@@ -31,6 +33,7 @@ import net.minestom.server.coordinate.Point
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.*
+import net.minestom.server.event.EventDispatcher
 import net.minestom.server.event.entity.EntityTickEvent
 import net.minestom.server.event.inventory.InventoryCloseEvent
 import net.minestom.server.event.inventory.InventoryPreClickEvent
@@ -167,11 +170,6 @@ class BattleGame(gameOptions: GameOptions) : PvpGame(gameOptions) {
 
         var secondsToStart = 10
         var invulnerabilitySeconds = 15
-
-        if (System.getProperty("debug").toBoolean()) {
-            secondsToStart = 1
-            invulnerabilitySeconds = 1
-        }
 
         val secsUntilShowdown = players.size * 1.5 * 60L
 
@@ -734,6 +732,40 @@ class BattleGame(gameOptions: GameOptions) : PvpGame(gameOptions) {
         }
 
         sendMessage(message.armify())
+    }
+
+    var gameDestroyed = false
+    override fun destroy() {
+        if (gameDestroyed) return
+        gameDestroyed = true
+
+        Logger.info("A game of '${gameTypeInfo.name}' is ending")
+
+        Manager.globalEvent.removeChild(eventNode)
+
+        taskGroup.cancel()
+
+        gameDestroyed()
+
+        val destroyEvent = GameDestroyEvent(this)
+        EventDispatcher.call(destroyEvent)
+
+        GameManager.gameMap[gameName]?.remove(this)
+
+        teams.forEach {
+            it.destroy()
+        }
+
+        // Both spectators and players
+        getPlayers().shuffled().forEach {
+            scoreboard?.removeViewer(it)
+
+            it.joinGameOrNew("battle", ignoreCooldown = true)
+        }
+        players.clear()
+        spectators.clear()
+        queuedPlayers.clear()
+        teams.clear()
     }
 
     override fun instanceCreate(): Instance {

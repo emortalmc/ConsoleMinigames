@@ -1,7 +1,9 @@
 package dev.emortal.consoleminigames.game
 
 import dev.emortal.immortal.config.GameOptions
+import dev.emortal.immortal.event.GameDestroyEvent
 import dev.emortal.immortal.game.Game
+import dev.emortal.immortal.game.GameManager
 import dev.emortal.immortal.game.GameManager.joinGame
 import dev.emortal.immortal.game.GameState
 import dev.emortal.immortal.util.MinestomRunnable
@@ -19,12 +21,14 @@ import net.kyori.adventure.text.format.TextDecoration
 import net.kyori.adventure.title.Title
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.entity.Player
+import net.minestom.server.event.EventDispatcher
 import net.minestom.server.event.player.PlayerBlockBreakEvent
 import net.minestom.server.event.player.PlayerBlockPlaceEvent
 import net.minestom.server.instance.AnvilLoader
 import net.minestom.server.instance.Instance
 import net.minestom.server.scoreboard.Sidebar
 import net.minestom.server.sound.SoundEvent
+import org.tinylog.kotlin.Logger
 import world.cepi.kstom.Manager
 import world.cepi.kstom.event.listenOnly
 import java.nio.file.Files
@@ -50,6 +54,7 @@ class ConsoleLobby(gameOptions: GameOptions) : Game(gameOptions) {
         .collect(Collectors.toSet())
 
     var preparedGame: BattleGame? = null
+    var gameJoined = false
 
     init {
         maps.forEach {
@@ -75,7 +80,7 @@ class ConsoleLobby(gameOptions: GameOptions) : Game(gameOptions) {
     }
 
     override fun gameDestroyed() {
-        preparedGame?.destroy()
+        if (!gameJoined) preparedGame?.destroy()
         mapVoteMap.clear()
     }
 
@@ -153,7 +158,7 @@ class ConsoleLobby(gameOptions: GameOptions) : Game(gameOptions) {
                     bossBar.color(BossBar.Color.GREEN)
                 }
 
-                if (currentIteration == 5L) {
+                if ((gameOptions.countdownSeconds - currentIteration) == 5L) {
                     mapVoteEnded = true
 
                     mapToJoin = mapVoteMap.maxByOrNull { it.value.size }?.key ?: maps.random()
@@ -190,8 +195,7 @@ class ConsoleLobby(gameOptions: GameOptions) : Game(gameOptions) {
                 Manager.bossBar.destroyBossBar(bossBar)
 
                 startingTask = null
-
-                val gameToJoin = preparedGame
+                gameJoined = true
 
                 players.forEach {
                     it.joinGame(preparedGame!!, spectate = false, ignoreCooldown = true)
@@ -200,13 +204,40 @@ class ConsoleLobby(gameOptions: GameOptions) : Game(gameOptions) {
                     it.joinGame(preparedGame!!, spectate = true, ignoreCooldown = true)
                 }
 
-                preparedGame = null
-
             }
 
         }
     }
 
+    var gameDestroyed = false
+    override fun destroy() {
+        if (gameDestroyed) return
+        gameDestroyed = true
+
+        Logger.info("A game of '${gameTypeInfo.name}' is ending")
+
+        Manager.globalEvent.removeChild(eventNode)
+
+        taskGroup.cancel()
+
+        gameDestroyed()
+
+        val destroyEvent = GameDestroyEvent(this)
+        EventDispatcher.call(destroyEvent)
+
+        GameManager.gameMap[gameName]?.remove(this)
+
+        teams.forEach {
+            it.destroy()
+        }
+
+        players.clear()
+        spectators.clear()
+        queuedPlayers.clear()
+        teams.clear()
+
+        refreshPlayerCount()
+    }
 
     override fun cancelCountdown() {
         if (startingTask == null) return
