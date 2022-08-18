@@ -18,7 +18,7 @@ dependencies {
     compileOnly("com.github.EmortalMC:Immortal:7346492f7d")
     //compileOnly("com.github.EmortalMC:TNT:61bc234136")
 
-    compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-json:1.3.3")
+    compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-json:1.4.0")
     compileOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.4")
     compileOnly("com.github.EmortalMC:MinestomPvP:e2ed02e73a")
 }
