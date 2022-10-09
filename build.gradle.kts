@@ -1,8 +1,8 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
-    id("org.jetbrains.kotlin.jvm") version "1.7.10"
-    kotlin("plugin.serialization") version "1.7.10"
+    id("org.jetbrains.kotlin.jvm") version "1.7.20"
+    kotlin("plugin.serialization") version "1.7.20"
     id("com.github.johnrengelman.shadow") version "7.1.2"
     java
 }
@@ -14,13 +14,13 @@ repositories {
 }
 
 dependencies {
-    compileOnly("com.github.Minestom:Minestom:d6d1b85601")
-    compileOnly("com.github.EmortalMC:Immortal:7346492f7d")
+    compileOnly("com.github.Minestom:Minestom:17ef1c2f57")
+    compileOnly("com.github.EmortalMC:Immortal:1174fefda5")
     //compileOnly("com.github.EmortalMC:TNT:61bc234136")
 
     compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-json:1.4.0")
     compileOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.4")
-    compileOnly("com.github.EmortalMC:MinestomPvP:e2ed02e73a")
+    implementation("com.github.EmortalMC:MinestomPvP:e2ed02e73a")
 }
 
 tasks {

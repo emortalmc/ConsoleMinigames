@@ -225,7 +225,7 @@ class ConsoleLobby(gameOptions: GameOptions) : Game(gameOptions) {
         val destroyEvent = GameDestroyEvent(this)
         EventDispatcher.call(destroyEvent)
 
-        GameManager.gameMap[gameName]?.remove(this)
+        GameManager.gameMap[gameName]?.remove(id)
 
         teams.forEach {
             it.destroy()

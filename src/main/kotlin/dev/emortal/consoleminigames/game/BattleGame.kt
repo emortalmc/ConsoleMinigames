@@ -20,6 +20,7 @@ import io.github.bloepiloepi.pvp.damage.CustomDamageType
 import io.github.bloepiloepi.pvp.damage.CustomEntityDamage
 import io.github.bloepiloepi.pvp.entity.EntityUtils
 import io.github.bloepiloepi.pvp.events.*
+import io.github.bloepiloepi.pvp.events.PlayerSpectateEvent
 import io.github.bloepiloepi.pvp.explosion.ExplosionListener
 import io.github.bloepiloepi.pvp.explosion.PvpExplosionSupplier
 import net.kyori.adventure.bossbar.BossBar
@@ -57,7 +58,6 @@ import org.tinylog.kotlin.Logger
 import world.cepi.kstom.Manager
 import world.cepi.kstom.event.listenOnly
 import world.cepi.kstom.util.asVec
-import world.cepi.kstom.util.playSound
 import world.cepi.kstom.util.roundToBlock
 import world.cepi.particle.Particle
 import world.cepi.particle.ParticleType
@@ -750,7 +750,7 @@ class BattleGame(gameOptions: GameOptions) : PvpGame(gameOptions) {
         val destroyEvent = GameDestroyEvent(this)
         EventDispatcher.call(destroyEvent)
 
-        GameManager.gameMap[gameName]?.remove(this)
+        GameManager.gameMap[gameName]?.remove(id)
 
         teams.forEach {
             it.destroy()
