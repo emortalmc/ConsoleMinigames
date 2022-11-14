@@ -1,59 +1,57 @@
 package dev.emortal.consoleminigames.game
 
-import dev.emortal.immortal.config.GameOptions
-import dev.emortal.immortal.event.GameDestroyEvent
 import dev.emortal.immortal.game.Game
-import dev.emortal.immortal.game.GameManager
-import dev.emortal.immortal.game.GameManager.joinGame
 import dev.emortal.immortal.game.GameState
-import dev.emortal.immortal.util.MinestomRunnable
 import dev.emortal.immortal.util.armify
 import dev.emortal.immortal.util.centerText
-import net.kyori.adventure.bossbar.BossBar
-import net.kyori.adventure.sound.Sound
-import net.kyori.adventure.sound.Sound.Emitter
+import io.github.bloepiloepi.pvp.PvpExtension
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.event.ClickEvent
 import net.kyori.adventure.text.event.HoverEvent
 import net.kyori.adventure.text.format.NamedTextColor
-import net.kyori.adventure.text.format.TextColor
 import net.kyori.adventure.text.format.TextDecoration
-import net.kyori.adventure.title.Title
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.entity.Player
-import net.minestom.server.event.EventDispatcher
+import net.minestom.server.event.EventNode
 import net.minestom.server.event.player.PlayerBlockBreakEvent
 import net.minestom.server.event.player.PlayerBlockPlaceEvent
+import net.minestom.server.event.trait.InstanceEvent
 import net.minestom.server.instance.AnvilLoader
+import net.minestom.server.instance.Chunk
 import net.minestom.server.instance.Instance
 import net.minestom.server.scoreboard.Sidebar
-import net.minestom.server.sound.SoundEvent
-import org.tinylog.kotlin.Logger
+import net.minestom.server.tag.Tag
 import world.cepi.kstom.Manager
 import world.cepi.kstom.event.listenOnly
 import java.nio.file.Files
 import java.nio.file.Path
-import java.time.Duration
 import java.util.*
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArraySet
 import java.util.stream.Collectors
 import kotlin.io.path.nameWithoutExtension
 
-class ConsoleLobby(gameOptions: GameOptions) : Game(gameOptions) {
+class ConsoleLobby : Game() {
 
-    val bossBar = BossBar.bossBar(Component.text("Waiting for players"), 0f, BossBar.Color.WHITE, BossBar.Overlay.PROGRESS)
+    override val maxPlayers: Int = 8
+    override val minPlayers: Int = 2
+    override val countdownSeconds: Int = 20
+    override val canJoinDuringGame: Boolean = false
+    override val showScoreboard: Boolean = false
+    override val showsJoinLeaveMessages: Boolean = true
+    override val allowsSpectators: Boolean = false
+
+
+//    val bossBar = BossBar.bossBar(Component.text("Waiting for players"), 0f, BossBar.Color.WHITE, BossBar.Overlay.PROGRESS)
 
     var mapVoteEnded = false
     val mapVoteMap = ConcurrentHashMap<String, MutableSet<UUID>>()
-
-    override var spawnPosition: Pos = Pos(-346.5, 64.0, -379.5, 90f, 0f)
 
     val maps = Files.list(Path.of("./battle-maps/"))
         .map { it.nameWithoutExtension }
         .collect(Collectors.toSet())
 
-    var preparedGame: BattleGame? = null
     var gameJoined = false
 
     init {
@@ -79,26 +77,47 @@ class ConsoleLobby(gameOptions: GameOptions) : Game(gameOptions) {
 
     }
 
-    override fun gameDestroyed() {
-        if (!gameJoined) preparedGame?.destroy()
+    companion object {
+        val SPAWN_POINT = Pos(-346.5, 64.0, -379.5, 90f, 0f)
+    }
+
+    override fun getSpawnPosition(player: Player, spectator: Boolean): Pos = SPAWN_POINT
+
+    override fun gameEnded() {
         mapVoteMap.clear()
     }
 
     override fun gameStarted() {
+//        Manager.bossBar.destroyBossBar(bossBar)
+
+        startingTask = null
+        gameJoined = true
+
+        val mapToJoin = mapVoteMap.maxByOrNull { it.value.size }?.key ?: maps.random()
+        val game = BattleGame(mapToJoin)
+        game.create()?.thenRun {
+            players.forEach {
+                it.respawnPoint = game.getSpawnPosition(it, false)
+                it.setInstance(game.instance!!, it.respawnPoint)
+            }
+        }
+
 
     }
 
     override fun playerJoin(player: Player) {
+        PvpExtension.setLegacyAttack(player, true)
+
         Component.text()
             .append(Component.text("JOIN", NamedTextColor.GREEN, TextDecoration.BOLD))
             .append(Component.text(" | ", NamedTextColor.DARK_GRAY))
             .append(Component.text(player.username, NamedTextColor.GREEN))
             .append(Component.text(" joined the game ", NamedTextColor.GRAY))
             .also {
-                if (gameState == GameState.WAITING_FOR_PLAYERS) it.append(Component.text("(${players.size}/${gameOptions.maxPlayers})", NamedTextColor.DARK_GRAY))
+                if (gameState == GameState.WAITING_FOR_PLAYERS) it.append(Component.text("(${players.size}/${maxPlayers})", NamedTextColor.DARK_GRAY))
             }
 
-        player.showBossBar(bossBar)
+//        player.showBossBar(bossBar)
 
         val message = Component.text()
 
@@ -128,10 +147,25 @@ class ConsoleLobby(gameOptions: GameOptions) : Game(gameOptions) {
     }
 
     override fun playerLeave(player: Player) {
+        mapVoteMap.forEach {
+            it.value.remove(player.uuid)
+
+            scoreboard?.updateLineContent(
+                "map${it.key}",
+                Component.text()
+                    .append(Component.text(it.key, NamedTextColor.GOLD, TextDecoration.BOLD))
+                    .append(Component.text(" | ", NamedTextColor.DARK_GRAY))
+                    .append(Component.text(it.value.size, NamedTextColor.WHITE))
+                    .append(Component.text(" votes", NamedTextColor.GRAY))
+                    .build(),
+            )
+            scoreboard?.updateLineScore("map${it}", it.value.size)
+        }
+
 
     }
 
-    override fun registerEvents() {
+    override fun registerEvents(eventNode: EventNode<InstanceEvent>) {
         eventNode.listenOnly<PlayerBlockPlaceEvent> {
             isCancelled = true
         }
@@ -140,133 +174,38 @@ class ConsoleLobby(gameOptions: GameOptions) : Game(gameOptions) {
         }
     }
 
-    override fun startCountdown() {
+    override fun victory(winningPlayers: Collection<Player>) {
 
-        startingTask = object : MinestomRunnable(taskGroup = taskGroup, repeat = Duration.ofSeconds(1), iterations = gameOptions.countdownSeconds.toLong()) {
-
-            lateinit var mapToJoin: String
-
-            override fun run() {
-                bossBar.name(Component.text()
-                    .append(Component.text("Starting in ", TextColor.color(59, 128, 59)))
-                    .append(Component.text(gameOptions.countdownSeconds - currentIteration, NamedTextColor.GREEN))
-                    .append(Component.text(" seconds", TextColor.color(59, 128, 59)))
-                    .build())
-                bossBar.progress(currentIteration.toFloat() / gameOptions.countdownSeconds.toFloat())
-
-                if (currentIteration == 0L) {
-                    bossBar.color(BossBar.Color.GREEN)
-                }
-
-                if ((gameOptions.countdownSeconds - currentIteration) == 5L) {
-                    mapVoteEnded = true
-
-                    mapToJoin = mapVoteMap.maxByOrNull { it.value.size }?.key ?: maps.random()
-
-                    preparedGame = BattleGame(
-                        GameOptions(
-                            maxPlayers = 8,
-                            minPlayers = players.size,
-                            countdownSeconds = 0,
-                            canJoinDuringGame = false,
-                            showScoreboard = true,
-                            showsJoinLeaveMessages = false,
-                            allowsSpectators = false
-                        ),
-                        BattleOptions(map = mapToJoin)
-                    )
-
-                    playSound(Sound.sound(SoundEvent.ENTITY_VILLAGER_CELEBRATE, Sound.Source.MASTER, 1f, 1f), Emitter.self())
-                    sendMessage(
-                        Component.text()
-                            .append(Component.text("★", NamedTextColor.YELLOW))
-                            .append(Component.text(" | ", NamedTextColor.DARK_GRAY))
-                            .append(Component.text(mapToJoin, NamedTextColor.WHITE))
-                            .append(Component.text(" won the map vote!", NamedTextColor.GRAY))
-                    )
-                }
-
-                if ((gameOptions.countdownSeconds - currentIteration) < 5) {
-                    playSound(Sound.sound(SoundEvent.BLOCK_NOTE_BLOCK_PLING, Sound.Source.AMBIENT, 1f, 1.2f))
-                }
-            }
-
-            override fun cancelled() {
-                Manager.bossBar.destroyBossBar(bossBar)
-
-                startingTask = null
-                gameJoined = true
-
-                players.forEach {
-                    it.joinGame(preparedGame!!, spectate = false, ignoreCooldown = true)
-                }
-                spectators.forEach {
-                    it.joinGame(preparedGame!!, spectate = true, ignoreCooldown = true)
-                }
-
-            }
-
-        }
     }
 
-    var gameDestroyed = false
-    override fun destroy() {
-        if (gameDestroyed) return
-        gameDestroyed = true
+    override fun instanceCreate(): CompletableFuture<Instance> {
+        val instanceFuture = CompletableFuture<Instance>()
 
-        Logger.info("A game of '${gameTypeInfo.name}' is ending")
-
-        Manager.globalEvent.removeChild(eventNode)
-
-        taskGroup.cancel()
-
-        gameDestroyed()
-
-        val destroyEvent = GameDestroyEvent(this)
-        EventDispatcher.call(destroyEvent)
-
-        GameManager.gameMap[gameName]?.remove(id)
-
-        teams.forEach {
-            it.destroy()
-        }
-
-        players.clear()
-        spectators.clear()
-        queuedPlayers.clear()
-        teams.clear()
-
-        refreshPlayerCount()
-    }
-
-    override fun cancelCountdown() {
-        if (startingTask == null) return
-        bossBar.progress(0f)
-        bossBar.name(Component.text("Waiting for players"))
-        bossBar.color(BossBar.Color.WHITE)
-
-        startingTask?.cancel()
-        startingTask = null
-
-        preparedGame?.destroy()
-
-        showTitle(
-            Title.title(
-                Component.empty(),
-                Component.text("Start cancelled!", NamedTextColor.RED, TextDecoration.BOLD),
-                Title.Times.times(Duration.ZERO, Duration.ofSeconds(2), Duration.ofSeconds(1))
-            )
-        )
-        playSound(Sound.sound(SoundEvent.ENTITY_VILLAGER_NO, Sound.Source.AMBIENT, 1f, 1f))
-    }
-
-    override fun instanceCreate(): Instance {
         val newInstance = Manager.instance.createInstanceContainer()
         newInstance.chunkLoader = AnvilLoader("./lobby")
-        newInstance.timeUpdate = null
         newInstance.timeRate = 0
+        newInstance.timeUpdate = null
+        newInstance.setTag(Tag.Boolean("doNotAutoUnloadChunk"), true)
 
-        return newInstance
+        newInstance.enableAutoChunkLoad(false)
+
+        val chunkXOff = SPAWN_POINT.blockX() / 16
+        val chunkZOff = SPAWN_POINT.blockZ() / 16
+        val radius = 5
+        val chunkFutures = mutableListOf<CompletableFuture<Chunk>>()
+        var i = 0
+        for (x in -radius..radius) {
+            for (z in -radius..radius) {
+                newInstance.loadChunk(chunkXOff + x, chunkZOff + z).let { chunkFutures.add(it) }
+                i++
+            }
+        }
+
+        CompletableFuture.allOf(*chunkFutures.toTypedArray()).thenRunAsync {
+            instanceFuture.complete(newInstance)
+        }
+
+        return instanceFuture
     }
 
 

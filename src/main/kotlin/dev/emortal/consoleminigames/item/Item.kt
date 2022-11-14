@@ -21,7 +21,7 @@ class Item(val material: Material, val weight: Int, val itemCreate: (ItemStack.B
                 val tool = Tool.fromMaterial(material)
 
                 if (tool != null) {
-                    val damage = tool.attackDamage.toInt()
+                    val damage = tool.legacyAttackDamage.toInt()
 
                     it.lore(
                         Component.text()

@@ -9,18 +9,20 @@ plugins {
 
 repositories {
     mavenCentral()
+    mavenLocal()
 
     maven("https://jitpack.io")
 }
 
 dependencies {
-    compileOnly("com.github.Minestom:Minestom:17ef1c2f57")
-    compileOnly("com.github.EmortalMC:Immortal:1174fefda5")
+    compileOnly("com.github.Minestom:Minestom:42195c536b")
+    compileOnly("com.github.EmortalMC:Immortal:5b2b3a057a")
     //compileOnly("com.github.EmortalMC:TNT:61bc234136")
 
-    compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-json:1.4.0")
+    compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-json:1.4.1")
     compileOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.4")
-    implementation("com.github.EmortalMC:MinestomPvP:e2ed02e73a")
+//    implementation("com.github.EmortalMC:MinestomPvP:8f8741a0ce")
+    implementation("io.github.bloepiloepi:MinestomPvP:1.0")
 }
 
 tasks {
