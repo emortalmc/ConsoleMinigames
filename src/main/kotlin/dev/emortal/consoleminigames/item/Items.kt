@@ -1,6 +1,5 @@
 package dev.emortal.consoleminigames.item
 
-import net.minestom.server.instance.block.Block
 import net.minestom.server.item.Enchantment
 import net.minestom.server.item.ItemHideFlag
 import net.minestom.server.item.Material
@@ -98,13 +97,13 @@ object Items {
             }
         },
         //Item(Material.FISHING_ROD, rare),
-        Item(Material.TNT, uncommon) {
-            it.amount(random.nextInt(1, 3))
-            it.meta {
-                it.canPlaceOn(Block.values().toMutableSet())
-                it.hideFlag(ItemHideFlag.HIDE_PLACED_ON)
-            }
-        },
+//        Item(Material.TNT, common) { // TODO: Re change to uncommon
+//            it.amount(random.nextInt(1, 3))
+//            it.meta {
+//                it.canPlaceOn(Block.values().toMutableSet())
+////                it.hideFlag(ItemHideFlag.HIDE_PLACED_ON)
+//            }
+//        },
 
         // Potions
         //Item(Material.TOTEM_OF_UNDYING, legendary),

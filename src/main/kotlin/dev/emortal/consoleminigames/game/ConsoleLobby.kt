@@ -1,5 +1,6 @@
 package dev.emortal.consoleminigames.game
 
+import dev.emortal.consoleminigames.commands.VoteCommand
 import dev.emortal.immortal.game.Game
 import dev.emortal.immortal.game.GameState
 import dev.emortal.immortal.util.armify
@@ -106,6 +107,8 @@ class ConsoleLobby : Game() {
     }
 
     override fun playerJoin(player: Player) {
+        player.removeTag(VoteCommand.mapVoteTag)
+
         PvpExtension.setLegacyAttack(player, true)
 
         Component.text()

@@ -371,7 +371,12 @@ class BattleGame(val map: String? = null) : PvpGame() {
     }
 
     override fun playerLeave(player: Player) {
+        val alivePlayers = players.filter { !it.hasTag(GameManager.spectatingTag) }
+        if (alivePlayers.size == 1) {
+            if (gameState != GameState.PLAYING) return
 
+            victory(alivePlayers.first())
+        }
     }
 
     @Suppress("UnstableApiUsage")
@@ -652,7 +657,6 @@ class BattleGame(val map: String? = null) : PvpGame() {
                 .append(Component.text("☠", NamedTextColor.GOLD))
                 .append(Component.text(" | ", NamedTextColor.DARK_GRAY))
                 .append(Component.text("Showdown has activated!", NamedTextColor.GOLD))
-                .append(Component.text("!", NamedTextColor.GRAY))
                 .build()
         )
         sendMessage(
