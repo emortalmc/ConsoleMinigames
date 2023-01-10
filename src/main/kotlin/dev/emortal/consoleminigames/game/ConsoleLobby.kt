@@ -2,6 +2,8 @@ package dev.emortal.consoleminigames.game
 
 import dev.emortal.consoleminigames.commands.VoteCommand
 import dev.emortal.immortal.game.Game
+import dev.emortal.immortal.game.GameManager
+import dev.emortal.immortal.game.GameManager.joinGameOrNew
 import dev.emortal.immortal.game.GameState
 import dev.emortal.immortal.util.armify
 import dev.emortal.immortal.util.centerText

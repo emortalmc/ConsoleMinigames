@@ -7,11 +7,11 @@ import net.kyori.adventure.text.format.TextDecoration
 import net.minestom.server.item.ItemHideFlag
 import net.minestom.server.item.ItemStack
 import net.minestom.server.item.Material
-import kotlin.math.abs
 
 class Item(val material: Material, val weight: Int, val itemCreate: (ItemStack.Builder) -> Unit = { }) {
 
-    val rarerWeight = abs(weight - 16)
+//    val rarerWeight = abs(weight - 16) TODO: Fix flawed system lol (many diamond pieces)
+    val rarerWeight = weight
 
     val itemStack: ItemStack get() {
 

@@ -1,6 +1,6 @@
 package dev.emortal.consoleminigames.game
 
-import dev.emortal.consoleminigames.ConsoleMinigamesExtension
+import dev.emortal.consoleminigames.ConsoleMinigamesMain
 import dev.emortal.consoleminigames.game.BattlePlayerHelper.cleanup
 import dev.emortal.consoleminigames.game.BattlePlayerHelper.kills
 import dev.emortal.consoleminigames.item.Items
@@ -22,6 +22,7 @@ import io.github.bloepiloepi.pvp.events.PlayerSpectateEvent
 import io.github.bloepiloepi.pvp.explosion.ExplosionListener
 import io.github.bloepiloepi.pvp.explosion.PvpExplosionSupplier
 import net.kyori.adventure.bossbar.BossBar
+import net.kyori.adventure.key.Key
 import net.kyori.adventure.sound.Sound
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
@@ -31,7 +32,6 @@ import net.kyori.adventure.title.Title
 import net.minestom.server.MinecraftServer
 import net.minestom.server.coordinate.Point
 import net.minestom.server.coordinate.Pos
-import net.minestom.server.coordinate.Vec
 import net.minestom.server.entity.*
 import net.minestom.server.event.EventNode
 import net.minestom.server.event.entity.EntityTickEvent
@@ -62,6 +62,7 @@ import world.cepi.kstom.util.roundToBlock
 import world.cepi.particle.Particle
 import world.cepi.particle.ParticleType
 import world.cepi.particle.data.OffsetAndSpeed
+import world.cepi.particle.extra.Dust
 import world.cepi.particle.showParticle
 import java.nio.file.Files
 import java.nio.file.Path
@@ -181,7 +182,7 @@ class BattleGame(val map: String? = null) : PvpGame() {
 
         val secsUntilShowdown = players.size * 1.5 * 60L
 
-        bossBar = BossBar.bossBar(Component.text("Time to start: $secondsToStart seconds"), 1f, BossBar.Color.WHITE, BossBar.Overlay.PROGRESS)
+        bossBar = BossBar.bossBar(Component.text("Time to start: $secondsToStart seconds"), 1f, BossBar.Color.PINK, BossBar.Overlay.PROGRESS)
         showBossBar(bossBar!!)
 
         scoreboard?.createLine(
@@ -200,23 +201,20 @@ class BattleGame(val map: String? = null) : PvpGame() {
             var lastNum = secondsToStart
 
             override fun run() {
-                bossBar!!.progress(1f - (currentIteration.toFloat() / iterations.toFloat()))
-
                 bossBar!!.name(Component.text("Time to start: $lastNum seconds"))
-                if (lastNum <= 5) {
-                    playSound(
-                        Sound.sound(SoundEvent.BLOCK_NOTE_BLOCK_BASS, Sound.Source.MASTER, 2f, 1f),
-                        Sound.Emitter.self()
-                    )
+                if (lastNum <= 10) {
+                    playSound(Sound.sound(Key.key("battle.countdown.begin"), Sound.Source.MASTER, 1f, 1f))
                 }
                 lastNum--
             }
 
             override fun cancelled() {
-                playSound(Sound.sound(SoundEvent.ENTITY_ENDER_DRAGON_GROWL, Sound.Source.MASTER, 1f, 1.3f))
+                playSound(Sound.sound(Key.key("battle.countdown.beginover"), Sound.Source.MASTER, 1f, 1f))
+
+                val rand = ThreadLocalRandom.current()
+                playSound(Sound.sound(Key.key("battle.music.battlemode${rand.nextInt(1, 5)}"), Sound.Source.MASTER, 0.5f, 1f))
 
                 bossBar!!.name(Component.text("Round start!"))
-                bossBar!!.progress(1f)
 
                 // Showdown timer
                 object : MinestomRunnable(repeat = Duration.ofSeconds(1), iterations = secsUntilShowdown.toInt(), group = runnableGroup) {
@@ -242,31 +240,19 @@ class BattleGame(val map: String? = null) : PvpGame() {
                 // Invincibility timer
                 object : MinestomRunnable(delay = Duration.ofSeconds(1), repeat = Duration.ofSeconds(1), iterations = invulnerabilitySeconds, group = runnableGroup) {
                     var lastNum = invulnerabilitySeconds
-                    var progress = 1f
 
                     override fun run() {
-                        bossBar!!.progress(1f - (currentIteration.toFloat() / iterations.toFloat()))
-
                         bossBar!!.name(Component.text("Invulnerability wears off in $lastNum seconds!"))
-                        if (lastNum <= 3) {
-                            playSound(Sound.sound(SoundEvent.BLOCK_NOTE_BLOCK_BASS, Sound.Source.MASTER, 2f, 1f))
+                        if (lastNum <= 5) {
+                            playSound(Sound.sound(Key.key("battle.countdown.begin"), Sound.Source.MASTER, 1f, 1f))
                         }
                         lastNum--
                     }
 
                     override fun cancelled() {
-                        playSound(Sound.sound(SoundEvent.ENTITY_ELDER_GUARDIAN_CURSE, Sound.Source.MASTER, 1f, 0.7f), Sound.Emitter.self())
+                        playSound(Sound.sound(Key.key("battle.countdown.invulover"), Sound.Source.MASTER, 1f, 1f), Sound.Emitter.self())
 
-                        bossBar!!.progress(0f)
                         bossBar!!.name(Component.text("Invulnerability has worn off! Fight!"))
-                        sendMessage(
-                            Component.text()
-                                .append(Component.text("☠", NamedTextColor.RED))
-                                .append(Component.text(" | ", NamedTextColor.DARK_GRAY))
-                                .append(Component.text("Invulnerability", NamedTextColor.WHITE))
-                                .append(Component.text(" has worn off!", NamedTextColor.GRAY))
-                                .append(Component.text(" Fight!", NamedTextColor.WHITE))
-                        )
 
                         playersInvulnerable = false
 
@@ -287,16 +273,6 @@ class BattleGame(val map: String? = null) : PvpGame() {
                 val chestsRefilled = refillChests()
                 if (chestsRefilled == 0) return
 
-                sendMessage(
-                    Component.text()
-                        .append(Component.text("★", NamedTextColor.YELLOW))
-                        .append(Component.text(" | ", NamedTextColor.DARK_GRAY))
-                        .append(Component.text("$chestsRefilled chests", NamedTextColor.WHITE))
-                        .append(Component.text(" have been ", NamedTextColor.GRAY))
-                        .append(Component.text("refilled", NamedTextColor.WHITE))
-                        .append(Component.text("!", NamedTextColor.GRAY))
-                )
-
                 showTitle(
                     Title.title(
                         Component.empty(),
@@ -308,9 +284,9 @@ class BattleGame(val map: String? = null) : PvpGame() {
                     )
                 )
 
-                playSound(Sound.sound(SoundEvent.BLOCK_ENDER_CHEST_OPEN, Sound.Source.MASTER, 1f, 1f), Sound.Emitter.self())
+                playSound(Sound.sound(Key.key("battle.refill.open"), Sound.Source.MASTER, 1f, 1f), Sound.Emitter.self())
                 instance!!.scheduler().buildTask {
-                    playSound(Sound.sound(SoundEvent.BLOCK_ENDER_CHEST_CLOSE, Sound.Source.MASTER, 1f, 1f), Sound.Emitter.self())
+                    playSound(Sound.sound(Key.key("battle.refill.close"), Sound.Source.MASTER, 1f, 1f), Sound.Emitter.self())
                 }.delay(Duration.ofMillis(1250)).schedule()
                 instance!!.scheduler().buildTask {
                     showTitle(
@@ -326,18 +302,23 @@ class BattleGame(val map: String? = null) : PvpGame() {
 
         // Refill chest particle task
         object : MinestomRunnable(repeat = Duration.ofMillis(50), delay = refillInterval, group = runnableGroup) {
+            var i = 0.0
             override fun run() {
 //                val rand = ThreadLocalRandom.current()
+                if (i > 2 * PI) i = i % 2 * PI
 
                 unopenedRefilledChests.forEach {
                     showParticle(
                         Particle.particle(
-                            type = ParticleType.CRIT,
+                            type = ParticleType.DUST,
+                            extraData = Dust(1f, 1f, 0f, 0.75f),
                             count = 0,
-                            data = OffsetAndSpeed(0f, 0.2f, 0f, 0.05f)
-                        ), it.asVec().add(0.5, 1.0, 0.5)
+                            data = OffsetAndSpeed(0f, 0.25f, 0f, 0.1f)
+                        ), it.asVec().add(0.5 + (sin(i) * 0.5), 1.0, 0.5 + (cos(i) * 0.5))
                     )
                 }
+
+                i++
             }
         }
     }
@@ -371,7 +352,7 @@ class BattleGame(val map: String? = null) : PvpGame() {
     }
 
     override fun playerLeave(player: Player) {
-        val alivePlayers = players.filter { !it.hasTag(GameManager.spectatingTag) }
+        val alivePlayers = players.filter { it.gameMode == GameMode.SURVIVAL }
         if (alivePlayers.size == 1) {
             if (gameState != GameState.PLAYING) return
 
@@ -557,7 +538,7 @@ class BattleGame(val map: String? = null) : PvpGame() {
     override fun playerDied(player: Player, killer: Entity?) {
         player.showTitle(Title.title(Component.text("YOU DIED", NamedTextColor.RED, TextDecoration.BOLD), Component.empty(), Title.Times.times(Duration.ZERO, Duration.ofSeconds(2), Duration.ofMillis(500))))
 
-        playSound(Sound.sound(SoundEvent.ENTITY_GUARDIAN_DEATH, Sound.Source.MASTER, 1f, 1f), Sound.Emitter.self())
+        playSound(Sound.sound(Key.key("battle.death"), Sound.Source.MASTER, 1f, 1f), Sound.Emitter.self())
 
 
         if (killer != null && killer is Player) {
@@ -565,17 +546,19 @@ class BattleGame(val map: String? = null) : PvpGame() {
 
             killer.playSound(Sound.sound(SoundEvent.BLOCK_ANVIL_LAND, Sound.Source.MASTER, 0.35f, 2f), Sound.Emitter.self())
 
-            player.sendMessage(
-                Component.text()
-                    .append(Component.text(killer.username, NamedTextColor.RED, TextDecoration.BOLD))
-                    .append(Component.text(" was on ", TextColor.color(209, 50, 50)))
-                    .append(Component.text("❤ ${killer.health.toInt()}/${killer.maxHealth.toInt()}", NamedTextColor.RED))
-                    .also {
-                        if (killer.health < 1.5) {
-                            it.append(Component.text(" (so close!)", TextColor.color(82, 11, 11)))
-                        }
-                    }
-            )
+            player.scheduler().buildTask {
+                player.showTitle(
+                    Title.title(
+                        Component.empty(),
+                        Component.text()
+                            .append(Component.text(killer.username, NamedTextColor.RED, TextDecoration.BOLD))
+                            .append(Component.text(" was on ", TextColor.color(209, 50, 50)))
+                            .append(Component.text("❤ ${killer.health.toInt()}/${killer.maxHealth.toInt()}", NamedTextColor.RED))
+                            .build(),
+                        Title.Times.times(Duration.ofMillis(250), Duration.ofMillis(1750), Duration.ofMillis(500))
+                    )
+                )
+            }.delay(Duration.ofMillis(2500))
 
             sendMessage(
                 Component.text()
@@ -615,17 +598,20 @@ class BattleGame(val map: String? = null) : PvpGame() {
             )
         }
 
-        val rand = ThreadLocalRandom.current()
+//        val rand = ThreadLocalRandom.current()
         player.inventory.itemStacks.filter { it.material() != blockedItemStack.material() }.forEach {
-            val angle = rand.nextDouble(PI * 2)
-            val strength = rand.nextDouble(3.0, 6.0)
-            val x = cos(angle) * strength
-            val z = sin(angle) * strength
-
-            val itemEntity = ItemEntity(it)
-            itemEntity.setPickupDelay(500, TimeUnit.MILLISECOND)
-            itemEntity.velocity = Vec(x, rand.nextDouble(3.0, 7.0), z)
-            itemEntity.setInstance(player.instance!!, player.position.add(0.0, 1.5, 0.0))
+//            TODO: following code appears to cause issues
+//            val angle = rand.nextDouble(PI * 2)
+//            val strength = rand.nextDouble(3.0, 6.0)
+//            val x = cos(angle) * strength
+//            val z = sin(angle) * strength
+//
+//            val itemEntity = ItemEntity(it)
+//            itemEntity.setPickupDelay(500, TimeUnit.MILLISECOND)
+//            itemEntity.velocity = Vec(x, rand.nextDouble(3.0, 7.0), z)
+//            itemEntity.setInstance(player.instance!!, player.position.add(0.0, 1.5, 0.0))
+//
+            player.dropItem(it)
         }
 
         player.inventory.clear()
@@ -639,48 +625,23 @@ class BattleGame(val map: String? = null) : PvpGame() {
         borderActive = true
 
         instance!!.worldBorder.setCenter(centerPos.x.toFloat(), centerPos.z.toFloat())
-        instance!!.worldBorder.setDiameter((circleSize * 2) + 1.5)
+        instance!!.worldBorder.diameter = (circleSize * 2) + 17.2
         instance!!.worldBorder.warningBlocks = 0
 
-        playSound(Sound.sound(SoundEvent.ENTITY_WITHER_SPAWN, Sound.Source.MASTER, 0.25f, 2f), Sound.Emitter.self())
+        playSound(Sound.sound(Key.key("battle.showdown"), Sound.Source.MASTER, 1f, 1f), Sound.Emitter.self())
 
-        showTitle(
-            Title.title(
-                Component.text("SHOWDOWN", NamedTextColor.RED, TextDecoration.BOLD),
-                Component.empty(),
-                Title.Times.times(Duration.ofSeconds(1), Duration.ofSeconds(2), Duration.ofSeconds(1))
-            )
-        )
-
-        sendMessage(
-            Component.text()
-                .append(Component.text("☠", NamedTextColor.GOLD))
-                .append(Component.text(" | ", NamedTextColor.DARK_GRAY))
-                .append(Component.text("Showdown has activated!", NamedTextColor.GOLD))
-                .build()
-        )
-        sendMessage(
-            Component.text()
-                .append(Component.text("☠", NamedTextColor.GOLD))
-                .append(Component.text(" | ", NamedTextColor.DARK_GRAY))
-                .append(Component.text("Game ends in 2 minutes!", NamedTextColor.GOLD))
-                .build()
-        )
-
-        object : MinestomRunnable(repeat = Duration.ofSeconds(1), iterations = 2 * 60, group = runnableGroup) {
+        object : MinestomRunnable(repeat = Duration.ofSeconds(1), iterations = 60, group = runnableGroup) {
 
             override fun run() {
                 scoreboard?.updateLineContent("infoLine", Component.text("Game end in ${(iterations - currentIteration.get()).parsed()}", NamedTextColor.GREEN))
+
+                playSound(Sound.sound(Key.key("battle.showdown.count${(currentIteration.get() % 2) + 1}"), Sound.Source.MASTER, 1f, 1f), Sound.Emitter.self())
             }
 
             override fun cancelled() {
                 victory(players.maxBy { it.kills })
             }
 
-        }
-
-        players.forEach {
-            it.isGlowing = true
         }
     }
 
@@ -742,9 +703,6 @@ class BattleGame(val map: String? = null) : PvpGame() {
 
         Logger.info("Game ${gameTypeInfo.name}#$id is ending")
 
-//        Manager.globalEvent.removeChild(eventNode)
-//        eventNode = null
-
         gameEnded()
 
 
@@ -776,22 +734,20 @@ class BattleGame(val map: String? = null) : PvpGame() {
             // immortal destroy code - kinda scuffed but idc
             refreshPlayerCount()
 
-            MinecraftServer.getInstanceManager().unregisterInstance(instance!!)
-
             createFuture = null
             startingTask?.cancel()
             startingTask = null
-            instance = null
 
             GameManager.removeGame(this)
+            MinecraftServer.getInstanceManager().unregisterInstance(instance!!)
+            instance = null
         }
     }
 
     override fun instanceCreate(): CompletableFuture<Instance> {
         val instanceFuture = CompletableFuture<Instance>()
 
-        val mapPath = map
-            ?: Files.list(Path.of("./battle-maps/"))
+        val mapPath = map ?: Files.list(Path.of("./battle-maps/"))
                 .map { it.nameWithoutExtension }
                 .collect(Collectors.toSet())
                 .random()
@@ -804,7 +760,7 @@ class BattleGame(val map: String? = null) : PvpGame() {
         newInstance.explosionSupplier = PvpExplosionSupplier.INSTANCE
         newInstance.enableAutoChunkLoad(false)
 
-        val config = ConsoleMinigamesExtension.config.mapSpawnPositions[map]
+        val config = ConsoleMinigamesMain.config.mapSpawnPositions[map]
         if (config == null) {
             Logger.warn("No config for map $map")
             throw NullPointerException("no config")
@@ -816,21 +772,19 @@ class BattleGame(val map: String? = null) : PvpGame() {
         val chunkXOff = centerPos.blockX() / 16
         val chunkZOff = centerPos.blockZ() / 16
         val radius = 8
-        val chunkFutures = mutableListOf<CompletableFuture<Chunk>>()
         var i = 0
         for (x in -radius..radius) {
             for (z in -radius..radius) {
-                newInstance.loadChunk(chunkXOff + x, chunkZOff + z).let { chunkFutures.add(it) }
+                newInstance.loadChunk(chunkXOff + x, chunkZOff + z).thenAccept {
+                    it.sendChunk()
+                }
                 i++
             }
         }
 
-        CompletableFuture.allOf(*chunkFutures.toTypedArray()).thenRunAsync {
+        newInstance.loadChunk(centerPos).thenRun {
             instanceFuture.complete(newInstance)
         }
-
-        Logger.info("Spawns: $config")
-        Logger.info(centerPos.toString())
 
         return instanceFuture
     }
