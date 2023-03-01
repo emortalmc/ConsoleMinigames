@@ -15,8 +15,9 @@ repositories {
 }
 
 dependencies {
-    implementation("com.github.Minestom:Minestom:eb06ba8664")
-    implementation("dev.emortal.immortal:Immortal:3.0.1")
+    implementation("com.github.hollow-cube:Minestom:e6d4a2cc91")
+//    implementation("dev.emortal.immortal:Immortal:3.0.1")
+    implementation("com.github.EmortalMC:Immortal:bb0a38dc47")
     //compileOnly("com.github.EmortalMC:TNT:61bc234136")
 
     compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-json:1.4.1")

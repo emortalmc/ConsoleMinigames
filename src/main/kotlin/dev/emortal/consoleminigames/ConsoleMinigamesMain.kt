@@ -14,18 +14,20 @@ import net.kyori.adventure.text.format.NamedTextColor
 import net.minestom.server.MinecraftServer
 import net.minestom.server.instance.InstanceContainer
 import net.minestom.server.utils.time.TimeUnit
-import org.tinylog.kotlin.Logger
-import world.cepi.kstom.command.register
+import org.slf4j.LoggerFactory
+import java.io.Console
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.stream.Collectors
 import kotlin.io.path.nameWithoutExtension
 
+private val LOGGER = LoggerFactory.getLogger(ConsoleMinigamesMain::class.java)
+
 fun main() {
     Immortal.initAsServer()
 
     val maps = Files.list(Path.of("./battle-maps/")).map { it.nameWithoutExtension }.collect(Collectors.toSet())
-    Logger.info("Found ${maps.size} maps:\n- ${maps.joinToString("\n- ")}")
+    LOGGER.info("Found ${maps.size} maps:\n- ${maps.joinToString("\n- ")}")
 
     val minigamesConfig = MinigamesConfig()
     val mapConfigMap = mutableMapOf<String, MapConfig>()
@@ -55,15 +57,14 @@ fun main() {
         showsInSlashPlay = true
     )
 
-    VoteCommand.register()
+    val commandMgr = MinecraftServer.getCommandManager()
+    commandMgr.register(VoteCommand)
 
-    Logger.info("[Battle] Initialized!")
+    LOGGER.info("[Battle] Initialized!")
 }
 
 class ConsoleMinigamesMain {
     companion object {
         lateinit var config: MinigamesConfig
-
-        lateinit var cavernsInstance: InstanceContainer
     }
 }

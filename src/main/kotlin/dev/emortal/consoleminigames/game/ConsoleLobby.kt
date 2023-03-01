@@ -13,6 +13,7 @@ import net.kyori.adventure.text.event.ClickEvent
 import net.kyori.adventure.text.event.HoverEvent
 import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.TextDecoration
+import net.minestom.server.MinecraftServer
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.entity.Player
 import net.minestom.server.event.EventNode
@@ -24,8 +25,6 @@ import net.minestom.server.instance.Chunk
 import net.minestom.server.instance.Instance
 import net.minestom.server.scoreboard.Sidebar
 import net.minestom.server.tag.Tag
-import world.cepi.kstom.Manager
-import world.cepi.kstom.event.listenOnly
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.*
@@ -171,11 +170,11 @@ class ConsoleLobby : Game() {
     }
 
     override fun registerEvents(eventNode: EventNode<InstanceEvent>) {
-        eventNode.listenOnly<PlayerBlockPlaceEvent> {
-            isCancelled = true
+        eventNode.addListener(PlayerBlockPlaceEvent::class.java) { e ->
+            e.isCancelled = true
         }
-        eventNode.listenOnly<PlayerBlockBreakEvent> {
-            isCancelled = true
+        eventNode.addListener(PlayerBlockBreakEvent::class.java) { e ->
+            e.isCancelled = true
         }
     }
 
@@ -186,7 +185,7 @@ class ConsoleLobby : Game() {
     override fun instanceCreate(): CompletableFuture<Instance> {
         val instanceFuture = CompletableFuture<Instance>()
 
-        val newInstance = Manager.instance.createInstanceContainer()
+        val newInstance = MinecraftServer.getInstanceManager().createInstanceContainer()
         newInstance.chunkLoader = AnvilLoader("./lobby")
         newInstance.timeRate = 0
         newInstance.timeUpdate = null

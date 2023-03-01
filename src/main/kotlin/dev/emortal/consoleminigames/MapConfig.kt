@@ -1,9 +1,9 @@
 package dev.emortal.consoleminigames
 
+import dev.emortal.immortal.serializer.PositionSerializer
 import kotlinx.serialization.Serializable
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.item.Material
-import world.cepi.kstom.serializer.PositionSerializer
 
 @Serializable
 data class MapConfig(
